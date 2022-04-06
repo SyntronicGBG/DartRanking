@@ -111,7 +111,7 @@ def Create_and_launch_gui():
             
         try:
             if not short_values:
-                sg.Print(root_path, do_not_reroute_stdout=False)
+                sg.Print('No values received.', do_not_reroute_stdout=False)
                 continue
 
             if event == 'Show player elos history':
