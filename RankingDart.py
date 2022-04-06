@@ -1,75 +1,62 @@
 import pandas as pd
 import numpy as np
 import PySimpleGUI as sg
+import os
 
-def Load_player(name):
-    path = r'\\rubin\\users$\\agfrxa\\dart\\' + name
-    history = pd.read_csv(path)
-    return history
+root_path = os.getcwd()
+start_score = 301.
+data_dict = {'MatchHistory': (['datetime','winner','opponents'], None),
+             'Elos': (['Christofer'], {'Christofer':start_score})}
 
-def Create_player(name):
-    player = ['outcome', 'elo', 'opponents']
-    match = pd.DataFrame(columns=player)
-    score = {'outcome':'N/A', 'elo':1000, 'opponents':'N/A'}
-    match = match.append(score, ignore_index=True)
-    path = r'\\rubin\\users$\\agfrxa\\dart\\' + name
-    match.to_csv(path, index=False)
+def Add_result_and_update_elo(datetime, outcomes, players):
+    i = outcomes.index('Win')
+    winner = players[i]
+    opponents = players[:i] + players[i+1:]
+    Add_match_to_match_history(datetime, winner, opponents)
+    Add_match_to_elos_history(winner, opponents)
+    
+def Add_match_to_match_history(datetime, winner, opponents):
+    matches_path = root_path + '\\MatchHistory'
+    matches = pd.read_csv(matches_path)
+    match = {'datetime':datetime, 'winner':winner,'opponents':opponents}
+    matches = matches.append(match, ignore_index=True)
+    matches.to_csv(matches_path, index=False)
+
+def Add_match_to_elos_history(winner, opponents):
+    elos_path = root_path + '\\Elos'
+    elos = pd.read_csv(elos_path)
+    players = [winner] + opponents
+    for player in players:
+        if not player in elos.columns:
+            elos[player] = [start_score]*len(elos.index)
+
+    last_elos = elos.iloc[-1]
+#     mult_factor = 32
+#     scores = {player:int(player==winner) for player in players}
+#     exp_elos = {player: 10**(last_elos[player]/400) for player in players}
+#     tot_exp_elos = sum(exp_elos.values())
+#     new_elos = last_elos.copy()
+#     for player in players:
+#         new_elos[player] = last_elos[player] + mult_factor*(scores[player] - exp_elos[player]/tot_exp_elos)
+    pot_factor = 0.01
+    pot_size = pot_factor*np.sum([last_elos[player] for player in players])
+    new_elos = last_elos.copy()
+    for player in players:
+        new_elos[player] =  np.round((1.-pot_factor)*last_elos[player] + pot_size*float(player==winner), 6)
+    elos = elos.append(new_elos, ignore_index=True)
+    elos.to_csv(elos_path, index=False)    
     pass
 
-def Update_score(name, win_loss, opponents):
-    path = r'\\rubin\\users$\\agfrxa\\dart\\' + name
-    score = {'outcome':win_loss, 'elo':0, 'opponents':opponents}
-    history = Load_player(name)
-    history = history.append(score, ignore_index=True)
-    history.to_csv(path, index=False)
-    pass
-    
-def Update_elo(name, win_loss, opponents):
-    no_players = len(opponents)
-    path = r'\\rubin\\users$\\agfrxa\\dart\\' + name
-    win_score = no_players/(no_players-0.8)
-    loss_score = 0
-    score_dict = {'Win':win_score, 'Loss':0}
-    history = Load_player(name)
-    player_elo = np.array(history['elo'])[-2]
-    total_elo = 0
-    
-    
-    for temp_name in opponents:
-        temp_path = 'C:\\Users\\agfrxa\\Python\\dart\\' + temp_name
-        temp_history = pd.read_csv(temp_path)
-        total_elo += np.array(temp_history['elo'])[-2]
-        
-    mean_elo = total_elo/no_players
-    expected_outcome = player_elo / (total_elo)
-    outcome = score_dict[win_loss]
-    mult_factor = 32
-    row = history[history['elo']==0].index.values
-    new_elo = player_elo + mult_factor * (outcome - expected_outcome)
-    history.at[row, 'elo'] = new_elo
-    history.to_csv(path, index=False)
-    pass
-    
-def Add_result_and_update_elo(outcomes, players):
-    for i, (outcome, name) in enumerate(zip(outcomes, players)):
-        opponents = players.copy()
-        opponents.pop(i)
-        Update_score(name, outcome, opponents)
-        
-    for i, (outcome, name) in enumerate(zip(outcomes, players)):
-        opponents = players.copy()
-        opponents.pop(i)
-        Update_elo(name, outcome, opponents)
-    pass
-
-        
-def Delete_latest_game(names):
-    for name in names:
-        history_player = Load_player(name)
-        latest_game_ind = len(history_player)-1
-        history_player = history_player.drop(latest_game_ind)
-        path = r'\\rubin\\users$\\agfrxa\\dart\\' + name
-        history_player.to_csv(path, index=False)
+def Delete_game_by_index(index):
+    index = index
+    matches_path = root_path + '\\MatchHistory'
+    matches = pd.read_csv(matches_path)
+    matches = matches.drop(index)
+    matches.to_csv(matches_path, index=False)
+    elos_path = root_path + '\\Elos'
+    elos = pd.read_csv(elos_path)
+    elos = elos.drop(index+1)
+    elos.to_csv(elos_path, index=False)
     pass
 
 def Create_strings_input_values(values):
@@ -80,16 +67,16 @@ def Create_strings_input_values(values):
             players.append(values[key])
         else:
             outcomes.append(values[key])
-    return players, outcomes
-
+    datetime = players.pop(-1)
+    return players, outcomes, datetime
         
 def Create_and_launch_gui():
     sg.theme('DarkAmber')   # Add a touch of color
     # All the stuff inside your window. 10 rows because too much effort to make window dynamic.
-    layout = [  [sg.Text('Enter the names of the players and the outcome for every player as either Win or Loss.\nPress Ok to record the game.')],
-                [sg.Text('To create a new player, enter their name in the first row and press "Create player".')],
-                [sg.Text('To show a player\'s history, enter their name in the first row and press "Show player match history".')],
-                [sg.Text('To delete the latest game from one or more players history, enter their names and press "Delete latest game".')],
+    layout = [  [sg.Text('Enter the names of the players and the outcome for every player as either Win or Loss and enter \nthe apprximate time for the game. Press Ok to record the game.')],
+                [sg.Text('To show the match history, press "Show match history".')],
+                [sg.Text('To show a player\'s elo history enter the name of the player on the first row and press "Show player elos history".')],
+                [sg.Text('To delete a game by index, enter the index of the game (starting on 0) and press \'Delete game by index\'.')],
                 [sg.Text('Name of player                                                        '), sg.Text('Outcome')],
                 [sg.InputText(),sg.Combo(['Win','Loss'], size = 10, readonly=True)],
                 [sg.InputText(),sg.Combo(['Win','Loss'], size = 10, readonly=True)],
@@ -99,10 +86,10 @@ def Create_and_launch_gui():
                 [sg.InputText(),sg.Combo(['Win','Loss'], size = 10, readonly=True)],
                 [sg.InputText(),sg.Combo(['Win','Loss'], size = 10, readonly=True)],
                 [sg.InputText(),sg.Combo(['Win','Loss'], size = 10, readonly=True)],
-                [sg.InputText(),sg.Combo(['Win','Loss'], size = 10, readonly=True)],
-                [sg.InputText(),sg.Combo(['Win','Loss'], size = 10, readonly=True)],
-                [sg.Button('Record game'), sg.Button('Create player'), 
-                 sg.Button('Show player match history'), sg.Button('Delete latest game'), 
+                [sg.InputText(),sg.Combo(['Win','Loss'], size = 10, readonly=True),               sg.Text('Date and approximate time for match hh:mm dd-mm-yyyy')],
+                [sg.InputText(),sg.Combo(['Win','Loss'], size = 10, readonly=True), sg.InputText()],
+                [sg.Button('Record game'), sg.Button('Show match history'), 
+                 sg.Button('Show player elos history'), sg.Button('Delete game by index'), 
                  sg.Button('Cancel')] ]
 
     # Create the Window
@@ -114,14 +101,27 @@ def Create_and_launch_gui():
         
         if event == sg.WIN_CLOSED or event == 'Cancel': # if user closes window or clicks cancel
             break
-        
+
+
+        if event == 'Show match history':
+            matches_path = root_path + '\\MatchHistory'
+            history = str(pd.read_csv(matches_path))
+            sg.Print(history, do_not_reroute_stdout=False)
+            continue
+            
         try:
             if not short_values:
                 sg.Print('No values recieved', do_not_reroute_stdout=False)
                 continue
+
+            if event == 'Show player elos history':
+                elos_path = root_path + '\\Elos'
+                history = str(pd.read_csv(elos_path)[short_values[0]])
+                sg.Print(history, do_not_reroute_stdout=False)
+                continue
             
             if event == 'Record game':
-                players, outcomes = Create_strings_input_values(short_values)
+                players, outcomes, datetime = Create_strings_input_values(short_values)
                 
                 if len(players) != len(outcomes):
                     sg.Print('Number of players must match number of recorded results.', do_not_reroute_stdout=False)
@@ -131,24 +131,14 @@ def Create_and_launch_gui():
                     sg.Print('One and only one player must be recorded as winner.', do_not_reroute_stdout=False)
                     continue
                     
-                Add_result_and_update_elo(outcomes, players)
+                Add_result_and_update_elo(datetime, outcomes, players)
                 sg.Print('Game has been recorded.', do_not_reroute_stdout=False)
+
                 
-            if event == 'Create player':
-                Create_player(short_values[0])
-                creation_string = 'Player' +  str(short_values[0]) + 'created'
-                sg.Print('Player',  short_values[0], 'created', do_not_reroute_stdout=False)
-                continue
-                
-            if event == 'Show player match history':
-                history = str(short_values[0]) + '\n' + str(Load_player(short_values[0]))
-                sg.Print(history, do_not_reroute_stdout=False)
-                continue
-                
-            if event == 'Delete latest game':
-                players, outcomes = Create_strings_input_values(short_values)
-                Delete_latest_game(players)
-                outp_string = 'Latest game for ' + ', '.join(players) + ' has been deleted.'
+            if event == 'Delete game by index':
+                index = short_values[0]
+                Delete_game_by_index(int(index))
+                outp_string = 'Game with index ' + str(index) + ' has been deleted.'
                 sg.Print(outp_string, do_not_reroute_stdout=False)
                 continue
                 
