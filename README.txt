@@ -5,3 +5,6 @@ there is outdated.
 
 Run the python script to lanch the GUI and follow the instructions. 
 If you find any bugs, have suggestions of improvement or have any questions, feel free to ask anyone on site!
+
+
+![alt text](https://upload.wikimedia.org/wikipedia/commons/0/06/Dart_board.png)
