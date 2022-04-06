@@ -3,7 +3,7 @@ import numpy as np
 import PySimpleGUI as sg
 import os
 
-root_path = os.getcwd()
+root_path = os.path.dirname(os.path.realpath(__file__))
 start_score = 301.
 data_dict = {'MatchHistory': (['datetime','winner','opponents'], None),
              'Elos': (['Christofer'], {'Christofer':start_score})}
@@ -111,7 +111,7 @@ def Create_and_launch_gui():
             
         try:
             if not short_values:
-                sg.Print('No values recieved', do_not_reroute_stdout=False)
+                sg.Print(root_path, do_not_reroute_stdout=False)
                 continue
 
             if event == 'Show player elos history':
