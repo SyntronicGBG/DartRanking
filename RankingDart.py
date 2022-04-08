@@ -4,6 +4,8 @@ import PySimpleGUI as sg
 import os
 
 root_path = os.path.dirname(os.path.realpath(__file__))
+matches_path = os.path.join(root_path, "MatchHistory")
+elos_path = os.path.join(root_path, "Elos")
 start_score = 301.
 data_dict = {'MatchHistory': (['datetime','winner','opponents'], None),
              'Elos': (['Christofer'], {'Christofer':start_score})}
@@ -16,14 +18,12 @@ def Add_result_and_update_elo(datetime, outcomes, players):
     Add_match_to_elos_history(winner, opponents)
     
 def Add_match_to_match_history(datetime, winner, opponents):
-    matches_path = root_path + '\\MatchHistory'
     matches = pd.read_csv(matches_path)
     match = {'datetime':datetime, 'winner':winner,'opponents':opponents}
     matches = matches.append(match, ignore_index=True)
     matches.to_csv(matches_path, index=False)
 
 def Add_match_to_elos_history(winner, opponents):
-    elos_path = root_path + '\\Elos'
     elos = pd.read_csv(elos_path)
     players = [winner] + opponents
     for player in players:
@@ -49,11 +49,9 @@ def Add_match_to_elos_history(winner, opponents):
 
 def Delete_game_by_index(index):
     index = index
-    matches_path = root_path + '\\MatchHistory'
     matches = pd.read_csv(matches_path)
     matches = matches.drop(index)
     matches.to_csv(matches_path, index=False)
-    elos_path = root_path + '\\Elos'
     elos = pd.read_csv(elos_path)
     elos = elos.drop(index+1)
     elos.to_csv(elos_path, index=False)
@@ -104,7 +102,6 @@ def Create_and_launch_gui():
 
 
         if event == 'Show match history':
-            matches_path = root_path + '\\MatchHistory'
             history = str(pd.read_csv(matches_path))
             sg.Print(history, do_not_reroute_stdout=False)
             continue
@@ -115,7 +112,6 @@ def Create_and_launch_gui():
                 continue
 
             if event == 'Show player elos history':
-                elos_path = root_path + '\\Elos'
                 history = str(pd.read_csv(elos_path)[short_values[0]])
                 sg.Print(history, do_not_reroute_stdout=False)
                 continue
