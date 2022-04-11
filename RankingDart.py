@@ -5,11 +5,24 @@ import os
 
 root_path = os.path.dirname(os.path.realpath(__file__))
 matches_path = os.path.join(root_path, "MatchHistory")
-elos_path = os.path.join(root_path, "Elos")
-start_score = 301.
-data_dict = {'MatchHistory': (['datetime','winner','opponents'], None),
-             'Elos': (['Christofer'], {'Christofer':start_score})}
+elos_path_pot = os.path.join(root_path, "ElosPot")
+elos_path_chess = os.path.join(root_path, "ElosChess")
 
+start_score_pot = 301.
+start_score_chess = 1200.
+# data_dict = {'MatchHistory': (['datetime','winner','opponents'], None),
+#              'Elos': (['Christofer'], {'Christofer':start_score_pot})}
+# row_dict = {}
+# for key, (cols, rows) in data_dict.items():
+#     try:
+#         data = pd.read_csv(root_path + key)
+#     except FileNotFoundError:
+#         data = pd.DataFrame(columns=cols)
+#         if not rows is None:
+#             data = data.append(rows, ignore_index=True)
+#         data.to_csv(root_path + key, index=False)
+        
+        
 def Add_result_and_update_elo(datetime, outcomes, players):
     i = outcomes.index('Win')
     winner = players[i]
@@ -24,27 +37,38 @@ def Add_match_to_match_history(datetime, winner, opponents):
     matches.to_csv(matches_path, index=False)
 
 def Add_match_to_elos_history(winner, opponents):
-    elos = pd.read_csv(elos_path)
+    elos_pot = pd.read_csv(elos_path_pot)
+    elos_chess = pd.read_csv(elos_path_chess)
     players = [winner] + opponents
     for player in players:
-        if not player in elos.columns:
-            elos[player] = [start_score]*len(elos.index)
+        if not player in elos_pot.columns:
+            elos_pot[player] = [start_score_pot]*len(elos_pot.index)
 
-    last_elos = elos.iloc[-1]
-#     mult_factor = 32
-#     scores = {player:int(player==winner) for player in players}
-#     exp_elos = {player: 10**(last_elos[player]/400) for player in players}
-#     tot_exp_elos = sum(exp_elos.values())
-#     new_elos = last_elos.copy()
-#     for player in players:
-#         new_elos[player] = last_elos[player] + mult_factor*(scores[player] - exp_elos[player]/tot_exp_elos)
-    pot_factor = 0.01
-    pot_size = pot_factor*np.sum([last_elos[player] for player in players])
-    new_elos = last_elos.copy()
+        if not player in elos_chess.columns:
+            elos_chess[player] = [start_score_chess]*len(elos_chess.index)
+
+
+    last_elos_chess = elos_chess.iloc[-1]
+    mult_factor = 32
+    scores = {player:int(player==winner) for player in players}
+    exp_elos = {player: 10**(last_elos_chess[player]/400) for player in players}
+    tot_exp_elos = sum(exp_elos.values())
+    new_elos_chess = last_elos_chess.copy()
     for player in players:
-        new_elos[player] =  np.round((1.-pot_factor)*last_elos[player] + pot_size*float(player==winner), 6)
-    elos = elos.append(new_elos, ignore_index=True)
-    elos.to_csv(elos_path, index=False)    
+        new_elos_chess[player] = last_elos_chess[player] + mult_factor*(scores[player] - exp_elos[player]/tot_exp_elos)
+
+    elos_chess = elos_chess.append(new_elos_chess, ignore_index=True)
+    elos_chess.to_csv(elos_path_chess, index=False)
+    
+    last_elos_pot = elos_pot.iloc[-1]
+    pot_factor = 0.01
+    pot_size = pot_factor*np.sum([last_elos_pot[player] for player in players])
+    new_elos_pot = last_elos_pot.copy()
+    for player in players:
+        new_elos_pot[player] =  np.round((1.-pot_factor)*last_elos_pot[player] + pot_size*float(player==winner), 6)
+    
+    elos_pot = elos_pot.append(new_elos_pot, ignore_index=True)
+    elos_pot.to_csv(elos_path_pot, index=False)
     pass
 
 def Delete_game_by_index(index):
@@ -52,9 +76,9 @@ def Delete_game_by_index(index):
     matches = pd.read_csv(matches_path)
     matches = matches.drop(index)
     matches.to_csv(matches_path, index=False)
-    elos = pd.read_csv(elos_path)
+    elos = pd.read_csv(elos_path_pot)
     elos = elos.drop(index+1)
-    elos.to_csv(elos_path, index=False)
+    elos.to_csv(elos_path_pot, index=False)
     pass
 
 def Create_strings_input_values(values):
@@ -112,7 +136,7 @@ def Create_and_launch_gui():
                 continue
 
             if event == 'Show player elos history':
-                history = str(pd.read_csv(elos_path)[short_values[0]])
+                history = str(pd.read_csv(elos_path_pot)[short_values[0]])
                 sg.Print(history, do_not_reroute_stdout=False)
                 continue
             
